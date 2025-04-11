@@ -53,13 +53,15 @@ jobs:
               fi
 
               echo "Reporting PR #$number"
+          
+              prefix_with_url="${MESSAGE_PREFIX} (${url})"
+          
               payload=$(jq -n \
-                --arg prefix "$MESSAGE_PREFIX" \
+                --arg prefix "$prefix_with_url" \
                 --arg title "$title" \
                 --arg body "$body" \
-                --arg url "<$url>" \
                 --arg footer "$FOOTER_NOTE" \
-                '{content: ($prefix + "\n\n**" + $title + "**\n" + $body + "\n\n" + $footer + "\n" + $url)}')
+                '{content: ($prefix + "\n\n**" + $title + "**\n" + $body + "\n\n" + $footer)}')
               curl -X POST -H "Content-Type: application/json" -d "$payload" ${{ secrets.DISCORD_WEBHOOK }}
 
               echo "$number" >> "$TRACKER_FILE"
