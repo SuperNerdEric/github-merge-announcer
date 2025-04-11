@@ -54,7 +54,7 @@ jobs:
 
               echo "Reporting PR #$number"
           
-              prefix_with_url="${MESSAGE_PREFIX} (${url})"
+              prefix_with_url="${MESSAGE_PREFIX} <${url}>"
           
               payload=$(jq -n \
                 --arg prefix "$prefix_with_url" \
