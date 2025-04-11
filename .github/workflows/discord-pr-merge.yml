@@ -8,7 +8,7 @@ on:
 env:
   TARGET_REPO: "runelite/plugin-hub"
   TARGET_AUTHOR: "SuperNerdEric"
-  MESSAGE_PREFIX: "Combat Logger Plugin has updated on the RuneLite Plugin Hub!"
+  MESSAGE_PREFIX: "Combat Logger has updated on the RuneLite Plugin Hub!"
   FOOTER_NOTE: "You may need to restart your RuneLite in order to receive the update."
   TIMEZONE: "America/New_York"
 
@@ -40,7 +40,7 @@ jobs:
                 --arg body "$body" \
                 --arg url "<$url>" \
                 --arg footer "$FOOTER_NOTE" \
-                '{content: ($prefix + "\n\n**" + $title + "**\n" + $body + "\n" + $footer + "\n" + $url)}')
+                '{content: ($prefix + "\n\n**" + $title + "**\n" + $body + "\n\n" + $footer + "\n" + $url)}')
               curl -X POST -H "Content-Type: application/json" -d "$payload" ${{ secrets.DISCORD_WEBHOOK }}
             done < merged.txt
           else
