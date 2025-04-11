@@ -1,0 +1,49 @@
+name: Notify on PR Merges
+
+on:
+  schedule:
+    - cron: '*/10 * * * *'  # Runs every 10 minutes
+  workflow_dispatch:
+
+env:
+  TARGET_REPO: "runelite/plugin-hub"
+  TARGET_AUTHOR: "SuperNerdEric"
+  MESSAGE_PREFIX: "✅ **PR Merged!**"
+  TIMEZONE: "America/New_York"
+
+jobs:
+  check-merged-prs:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Fetch recently closed PRs
+        run: |
+          echo "Checking for merged PRs by $TARGET_AUTHOR in $TARGET_REPO..."
+
+          # Extract repo parts
+          OWNER=$(echo "$TARGET_REPO" | cut -d/ -f1)
+          REPO=$(echo "$TARGET_REPO" | cut -d/ -f2)
+
+          # Fetch closed PRs
+          curl -s "https://api.github.com/repos/$OWNER/$REPO/pulls?state=closed" \
+          | jq -r --arg author "$TARGET_AUTHOR" '.[] | select(.user.login == $author and .merged_at != null) | "\(.number)\t\(.title)\t\(.body)\t\(.html_url)\t\(.merged_at)"' > merged.txt
+          
+          if [[ -s merged.txt ]]; then
+            echo "Found merged PR(s):"
+            cat merged.txt
+
+            while IFS=$'\t' read -r number title body url merged_at; do
+              payload=$(jq -n \
+                --arg prefix "$MESSAGE_PREFIX" \
+                --arg title "$title" \
+                --arg body "$body" \
+                --arg url "$url" \
+                '{content: ($prefix + "\n**" + $title + "**\n" + $body + "\n" + $url)}')
+              curl -X POST -H "Content-Type: application/json" -d "$payload" ${{ secrets.DISCORD_WEBHOOK }}
+            done < merged.txt
+          else
+            echo "No merged PRs by $TARGET_AUTHOR found."
+          fi
+
+        env:
+          TZ: ${{ env.TIMEZONE }}
