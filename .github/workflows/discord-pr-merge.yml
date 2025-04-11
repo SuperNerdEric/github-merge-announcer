@@ -8,7 +8,7 @@ on:
 env:
   TARGET_REPO: "runelite/plugin-hub"
   TARGET_AUTHOR: "SuperNerdEric"
-  MESSAGE_PREFIX: "Combat Logger has updated on the RuneLite Plugin Hub!"
+  MESSAGE_PREFIX: "📢 Combat Logger has updated on the RuneLite Plugin Hub!"
   FOOTER_NOTE: "You may need to restart your RuneLite in order to receive the update."
   TIMEZONE: "America/New_York"
 
