@@ -11,29 +11,45 @@ env:
   MESSAGE_PREFIX: "📢 Combat Logger has updated on the RuneLite Plugin Hub!"
   FOOTER_NOTE: "You may need to restart your RuneLite in order to receive the update."
   TIMEZONE: "America/New_York"
+  CACHE_KEY: pr-reporter-cache-v1
 
 jobs:
   check-merged-prs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Fetch recently closed PRs
+      - name: Set up PR state tracking
+        run: |
+          mkdir -p .pr-tracker
+          touch .pr-tracker/reported.txt
+
+      - name: Restore reported PR cache
+        uses: actions/cache@v4
+        with:
+          path: .pr-tracker/reported.txt
+          key: ${{ env.CACHE_KEY }}
+
+      - name: Fetch and process merged PRs
         run: |
           echo "Checking for merged PRs by $TARGET_AUTHOR in $TARGET_REPO..."
 
-          # Extract repo parts
           OWNER=$(echo "$TARGET_REPO" | cut -d/ -f1)
           REPO=$(echo "$TARGET_REPO" | cut -d/ -f2)
 
-          # Fetch closed PRs
           curl -s "https://api.github.com/repos/$OWNER/$REPO/pulls?state=closed" \
           | jq -r --arg author "$TARGET_AUTHOR" '.[] | select(.user.login == $author and .merged_at != null) | "\(.number)\t\(.title)\t\(.body)\t\(.html_url)\t\(.merged_at)"' > merged.txt
-          
+
           if [[ -s merged.txt ]]; then
             echo "Found merged PR(s):"
             cat merged.txt
 
             while IFS=$'\t' read -r number title body url merged_at; do
+              if grep -q "^$number$" .pr-tracker/reported.txt; then
+                echo "Already reported PR #$number"
+                continue
+              fi
+
+              echo "Reporting PR #$number"
               payload=$(jq -n \
                 --arg prefix "$MESSAGE_PREFIX" \
                 --arg title "$title" \
@@ -42,6 +58,8 @@ jobs:
                 --arg footer "$FOOTER_NOTE" \
                 '{content: ($prefix + "\n\n**" + $title + "**\n" + $body + "\n\n" + $footer + "\n" + $url)}')
               curl -X POST -H "Content-Type: application/json" -d "$payload" ${{ secrets.DISCORD_WEBHOOK }}
+
+              echo "$number" >> .pr-tracker/reported.txt
             done < merged.txt
           else
             echo "No merged PRs by $TARGET_AUTHOR found."
