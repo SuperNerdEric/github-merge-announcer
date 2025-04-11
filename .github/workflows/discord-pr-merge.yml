@@ -2,7 +2,7 @@ name: Notify on PR Merges
 
 on:
   schedule:
-    - cron: '*/10 * * * *'  # Runs every 10 minutes
+    - cron: '*/10 * * * *'  # Every 10 minutes
   workflow_dispatch:
 
 env:
@@ -11,23 +11,24 @@ env:
   MESSAGE_PREFIX: "📢 Combat Logger has updated on the RuneLite Plugin Hub!"
   FOOTER_NOTE: "You may need to restart your RuneLite in order to receive the update."
   TIMEZONE: "America/New_York"
-  CACHE_KEY: pr-reporter-cache-v1
+  TRACKER_FILE: ".pr-tracker/reported.txt"
+  COMMIT_EMAIL: "github-actions[bot]@users.noreply.github.com"
+  COMMIT_NAME: "GitHub Actions"
 
 jobs:
   check-merged-prs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Set up PR state tracking
-        run: |
-          mkdir -p .pr-tracker
-          touch .pr-tracker/reported.txt
-
-      - name: Restore reported PR cache
-        uses: actions/cache@v4
+      - name: Check out repo
+        uses: actions/checkout@v4
         with:
-          path: .pr-tracker/reported.txt
-          key: ${{ env.CACHE_KEY }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Ensure tracking file exists
+        run: |
+          mkdir -p $(dirname "$TRACKER_FILE")
+          touch "$TRACKER_FILE"
 
       - name: Fetch and process merged PRs
         run: |
@@ -39,12 +40,14 @@ jobs:
           curl -s "https://api.github.com/repos/$OWNER/$REPO/pulls?state=closed" \
           | jq -r --arg author "$TARGET_AUTHOR" '.[] | select(.user.login == $author and .merged_at != null) | "\(.number)\t\(.title)\t\(.body)\t\(.html_url)\t\(.merged_at)"' > merged.txt
 
+          reported_new=false
+
           if [[ -s merged.txt ]]; then
             echo "Found merged PR(s):"
             cat merged.txt
 
             while IFS=$'\t' read -r number title body url merged_at; do
-              if grep -q "^$number$" .pr-tracker/reported.txt; then
+              if grep -q "^$number$" "$TRACKER_FILE"; then
                 echo "Already reported PR #$number"
                 continue
               fi
@@ -59,10 +62,21 @@ jobs:
                 '{content: ($prefix + "\n\n**" + $title + "**\n" + $body + "\n\n" + $footer + "\n" + $url)}')
               curl -X POST -H "Content-Type: application/json" -d "$payload" ${{ secrets.DISCORD_WEBHOOK }}
 
-              echo "$number" >> .pr-tracker/reported.txt
+              echo "$number" >> "$TRACKER_FILE"
+              reported_new=true
             done < merged.txt
           else
             echo "No merged PRs by $TARGET_AUTHOR found."
+          fi
+
+          if [[ "$reported_new" = true ]]; then
+            git config user.email "$COMMIT_EMAIL"
+            git config user.name "$COMMIT_NAME"
+            git add "$TRACKER_FILE"
+            git commit -m "Track new reported PRs [skip ci]"
+            git push
+          else
+            echo "No new PRs to report or commit."
           fi
 
         env:
