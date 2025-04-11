@@ -37,11 +37,8 @@ jobs:
           OWNER=$(echo "$TARGET_REPO" | cut -d/ -f1)
           REPO=$(echo "$TARGET_REPO" | cut -d/ -f2)
 
-          for page in {1..5}; do
-            echo "Fetching page $page..."
-            curl -s "https://api.github.com/repos/$OWNER/$REPO/pulls?state=closed&sort=updated&direction=desc&per_page=30&page=$page" \
-            | jq -r --arg author "$TARGET_AUTHOR" '.[] | select(.user.login == $author and .merged_at != null) | "\(.number)\t\(.title)\t\(.body)\t\(.html_url)\t\(.merged_at)"' >> merged.txt
-          done
+          curl -s "https://api.github.com/repos/$OWNER/$REPO/pulls?state=closed" \
+          | jq -r --arg author "$TARGET_AUTHOR" '.[] | select(.user.login == $author and .merged_at != null) | "\(.number)\t\(.title)\t\(.body)\t\(.html_url)\t\(.merged_at)"' > merged.txt
 
           reported_new=false
 
